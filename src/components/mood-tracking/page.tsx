@@ -6,48 +6,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Activity, PlusCircle, Edit, Trash2, CheckCircle } from "lucide-react";
-
-// Make sure this import path is correct and the component exists
-// import MoodForm from "@/components/mood-tracking/MoodForm";
-
-// Temporary placeholder component until MoodForm is properly created
-const MoodForm = ({ entry, onSubmit, onCancel }: {
-  entry?: MoodEntry;
-  onSubmit: (data: Omit<MoodEntry, 'id' | 'created_date' | 'updated_date'>) => void;
-  onCancel: () => void;
-}) => {
-  return (
-    <Card className="bg-slate-900/50 border-slate-700/50 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="text-white">{entry ? "Edit" : "New"} Mood Entry</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="text-center text-slate-400 py-8">
-          <Activity className="w-16 h-16 mx-auto mb-4 opacity-50" />
-          <p className="text-lg mb-2">Mood Entry Form</p>
-          <p className="text-sm mb-4">Advanced form with sliders will be implemented here</p>
-          <div className="flex gap-2 justify-center">
-            <Button onClick={onCancel} variant="outline">Cancel</Button>
-            <Button 
-              onClick={() => onSubmit({
-                mood_score: 7,
-                energy_level: 6,
-                stress_level: 4,
-                trading_confidence: 8,
-                market_sentiment: "NEUTRAL",
-                notes: "Sample entry",
-                tags: ["sample"]
-              })}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              Save Sample Entry
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
+import { motion, AnimatePresence } from "framer-motion";
+import MoodForm from "@/components/mood-tracking/MoodForm";
 
 export default function MoodTrackingPage() {
   const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([]);
@@ -128,33 +88,36 @@ export default function MoodTrackingPage() {
     }
   };
 
-  const getSentimentEmoji = (sentiment: string) => {
-    switch (sentiment) {
-      case "BULLISH": return "🐂";
-      case "BEARISH": return "🐻";
-      case "UNCERTAIN": return "❓";
-      default: return "⚖️";
-    }
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Success Message */}
-        {showSuccess && (
-          <div className="fixed top-4 right-4 z-50">
-            <Card className="bg-green-900/20 border-green-500/30">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 text-green-400">
-                  <CheckCircle className="w-5 h-5" />
-                  <span className="font-semibold">
-                    Mood entry {editingEntry ? 'updated' : 'saved'} successfully!
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        <AnimatePresence>
+          {showSuccess && (
+            <motion.div
+              initial={{ opacity: 0, y: -50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -50 }}
+              className="fixed top-4 right-4 z-50"
+            >
+              <Card className="bg-green-900/20 border-green-500/30">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-400" />
+                  <span className="text-green-400 font-medium">Mood entry saved successfully!</span>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Header */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
@@ -168,125 +131,162 @@ export default function MoodTrackingPage() {
             </div>
           </div>
           <Button 
-            onClick={() => setShowForm(!showForm)}
+            onClick={() => {
+              setEditingEntry(null);
+              setShowForm(!showForm);
+            }}
             className="bg-blue-600 hover:bg-blue-700"
           >
             <PlusCircle className="w-5 h-5 mr-2" />
-            {showForm ? "Close Form" : "Log New Entry"}
+            {showForm ? "Cancel" : "New Entry"}
           </Button>
         </div>
 
-        {/* Enhanced Mood Form */}
-        {showForm && (
-          <div className="mb-8">
-            <MoodForm
-              entry={editingEntry || undefined}
-              onSubmit={handleFormSubmit}
-              onCancel={handleCancel}
-            />
-          </div>
-        )}
+        {/* Mood Form */}
+        <AnimatePresence>
+          {showForm && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <MoodForm
+                entry={editingEntry}
+                onSubmit={handleFormSubmit}
+                onCancel={handleCancel}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* Mood History */}
-        <Card className="bg-slate-900/50 border-slate-700/50 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-white">Mood Entry History ({moodEntries.length} entries)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="text-center text-slate-400 py-8">
-                <Activity className="w-16 h-16 mx-auto mb-4 opacity-50 animate-pulse" />
-                <p>Loading mood entries...</p>
-              </div>
-            ) : moodEntries.length === 0 ? (
-              <div className="text-center text-slate-400 py-10">
-                <Activity className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-semibold text-white mb-2">No mood entries found</h3>
-                <p>Use the "Log New Entry" button to get started tracking your psychology.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-slate-700">
-                      <th className="text-left text-slate-300 py-3 px-2">Date & Time</th>
-                      <th className="text-center text-slate-300 py-3 px-2">Mood</th>
-                      <th className="text-center text-slate-300 py-3 px-2">Energy</th>
-                      <th className="text-center text-slate-300 py-3 px-2">Stress</th>
-                      <th className="text-center text-slate-300 py-3 px-2">Confidence</th>
-                      <th className="text-left text-slate-300 py-3 px-2">Market</th>
-                      <th className="text-left text-slate-300 py-3 px-2">Tags</th>
-                      <th className="text-right text-slate-300 py-3 px-2">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {moodEntries.map(entry => (
-                      <tr key={entry.id} className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors">
-                        <td className="text-slate-300 py-3 px-2">
-                          <div>
-                            <div className="font-medium">{new Date(entry.created_date!).toLocaleDateString()}</div>
-                            <div className="text-xs text-slate-500">{new Date(entry.created_date!).toLocaleTimeString()}</div>
+        {/* Mood Entries List */}
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold text-white">Recent Entries</h2>
+          
+          {isLoading ? (
+            <div className="grid gap-6">
+              {[...Array(3)].map((_, i) => (
+                <Card key={i} className="bg-slate-900/50 border-slate-700/50">
+                  <CardContent className="p-6">
+                    <div className="animate-pulse space-y-4">
+                      <div className="h-4 bg-slate-800 rounded w-1/4"></div>
+                      <div className="h-8 bg-slate-800 rounded"></div>
+                      <div className="h-4 bg-slate-800 rounded w-3/4"></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : moodEntries.length === 0 ? (
+            <Card className="bg-slate-900/50 border-slate-700/50">
+              <CardContent className="p-12 text-center">
+                <Activity className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-white mb-2">No mood entries yet</h3>
+                <p className="text-slate-400 mb-6">Start tracking your psychological state to gain insights into your trading performance.</p>
+                <Button 
+                  onClick={() => setShowForm(true)}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <PlusCircle className="w-5 h-5 mr-2" />
+                  Create First Entry
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-6">
+              {moodEntries.map((entry) => (
+                <motion.div
+                  key={entry.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Card className="bg-slate-900/50 border-slate-700/50 hover:border-slate-600/50 transition-colors">
+                    <CardContent className="p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="text-slate-400">
+                            {entry.created_date && formatDate(entry.created_date)}
                           </div>
-                        </td>
-                        <td className={`text-center font-bold py-3 px-2 ${getScoreColor(entry.mood_score)}`}>
-                          {entry.mood_score}
-                        </td>
-                        <td className={`text-center font-bold py-3 px-2 ${getScoreColor(entry.energy_level)}`}>
-                          {entry.energy_level}
-                        </td>
-                        <td className={`text-center font-bold py-3 px-2 ${getScoreColor(11 - entry.stress_level)}`}>
-                          {entry.stress_level}
-                        </td>
-                        <td className={`text-center font-bold py-3 px-2 ${getScoreColor(entry.trading_confidence)}`}>
-                          {entry.trading_confidence}
-                        </td>
-                        <td className="py-3 px-2">
                           <Badge className={getSentimentColor(entry.market_sentiment)}>
-                            {getSentimentEmoji(entry.market_sentiment)} {entry.market_sentiment}
+                            {entry.market_sentiment}
                           </Badge>
-                        </td>
-                        <td className="py-3 px-2">
-                          <div className="flex flex-wrap gap-1">
-                            {entry.tags?.slice(0, 2).map(tag => (
-                              <Badge key={tag} variant="secondary" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
-                            {entry.tags && entry.tags.length > 2 && (
-                              <Badge variant="secondary" className="text-xs">
-                                +{entry.tags.length - 2}
-                              </Badge>
-                            )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(entry)}
+                            className="text-blue-400 hover:text-blue-300"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(entry.id!)}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Scores Grid */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div className="text-center">
+                          <div className="text-sm text-slate-400">Mood</div>
+                          <div className={`text-2xl font-bold ${getScoreColor(entry.mood_score)}`}>
+                            {entry.mood_score}
                           </div>
-                        </td>
-                        <td className="text-right py-3 px-2">
-                          <div className="flex gap-1 justify-end">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 text-slate-400 hover:text-white"
-                              onClick={() => handleEdit(entry)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 text-slate-400 hover:text-red-400"
-                              onClick={() => handleDelete(entry.id!)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-sm text-slate-400">Energy</div>
+                          <div className={`text-2xl font-bold ${getScoreColor(entry.energy_level)}`}>
+                            {entry.energy_level}
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-sm text-slate-400">Stress</div>
+                          <div className={`text-2xl font-bold ${getScoreColor(10 - entry.stress_level)}`}>
+                            {entry.stress_level}
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-sm text-slate-400">Confidence</div>
+                          <div className={`text-2xl font-bold ${getScoreColor(entry.trading_confidence)}`}>
+                            {entry.trading_confidence}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Tags */}
+                      {entry.tags && entry.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {entry.tags.map((tag) => (
+                            <Badge
+                              key={tag}
+                              className="bg-slate-800 text-slate-300 border-slate-600"
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Notes */}
+                      {entry.notes && (
+                        <div className="text-slate-300 text-sm bg-slate-800/50 p-3 rounded">
+                          {entry.notes}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

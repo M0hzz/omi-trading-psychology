@@ -1,179 +1,223 @@
 "use client"
 
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp } from "lucide-react";
-import type { MarketIntelligence } from "@/entities";
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
 
-interface SentimentChartProps {
-  marketNews: MarketIntelligence[];
-  isLoading: boolean;
+const formFields = [
+  { name: "mood_score", label: "Mood" },
+  { name: "energy_level", label: "Energy" },
+  { name: "stress_level", label: "Stress" },
+  { name: "trading_confidence", label: "Confidence" }
+];
+
+interface MoodEntry {
+  id?: string;
+  mood_score: number;
+  energy_level: number;
+  stress_level: number;
+  trading_confidence: number;
+  market_sentiment: string;
+  notes: string;
+  tags: string[];
+  created_date?: string;
+  updated_date?: string;
 }
 
-export default function SentimentChart({ marketNews, isLoading }: SentimentChartProps) {
-  const getSentimentBySector = () => {
-    const sectorData: Record<string, { total: number; count: number; sentiment: number }> = {};
-    
-    marketNews.forEach(news => {
-      if (!sectorData[news.sector]) {
-        sectorData[news.sector] = { total: 0, count: 0, sentiment: 0 };
-      }
-      sectorData[news.sector].total += news.sentiment_score;
-      sectorData[news.sector].count += 1;
-    });
+interface MoodFormProps {
+  entry?: MoodEntry;
+  onSubmit: (data: Omit<MoodEntry, 'id' | 'created_date' | 'updated_date'>) => void;
+  onCancel: () => void;
+}
 
-    return Object.entries(sectorData).map(([sector, data]) => ({
-      sector: sector.length > 10 ? sector.slice(0, 10) + '...' : sector,
-      fullSector: sector,
-      avgSentiment: data.total / data.count,
-      articles: data.count
-    })).sort((a, b) => b.avgSentiment - a.avgSentiment);
-  };
+export default function MoodForm({ entry, onSubmit, onCancel }: MoodFormProps) {
+  const [formData, setFormData] = useState<Omit<MoodEntry, 'id' | 'created_date' | 'updated_date'>>({
+    mood_score: 5,
+    energy_level: 5,
+    stress_level: 5,
+    trading_confidence: 5,
+    market_sentiment: "NEUTRAL",
+    notes: "",
+    tags: []
+  });
+  const [tagInput, setTagInput] = useState("");
 
-  const getSentimentDistribution = () => {
-    const positive = marketNews.filter(n => n.sentiment_score > 0.3).length;
-    const negative = marketNews.filter(n => n.sentiment_score < -0.3).length;
-    const neutral = marketNews.length - positive - negative;
-
-    return [
-      { name: 'Positive', value: positive, color: '#22c55e' },
-      { name: 'Neutral', value: neutral, color: '#eab308' },
-      { name: 'Negative', value: negative, color: '#ef4444' }
-    ];
-  };
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-slate-800 border border-slate-600 rounded-lg p-3 shadow-lg">
-          <p className="text-slate-300 text-sm font-medium mb-1">{payload[0]?.payload?.fullSector}</p>
-          <p className="text-slate-300 text-sm">
-            Avg Sentiment: <span className={`font-semibold ${payload[0]?.value > 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {(payload[0]?.value * 100).toFixed(1)}%
-            </span>
-          </p>
-          <p className="text-slate-400 text-xs">
-            {payload[0]?.payload?.articles} articles
-          </p>
-        </div>
-      );
+  useEffect(() => {
+    if (entry) {
+      setFormData({
+        mood_score: entry.mood_score,
+        energy_level: entry.energy_level,
+        stress_level: entry.stress_level,
+        trading_confidence: entry.trading_confidence,
+        market_sentiment: entry.market_sentiment,
+        notes: entry.notes,
+        tags: entry.tags || []
+      });
+    } else {
+      setFormData({
+        mood_score: 5, 
+        energy_level: 5, 
+        stress_level: 5,
+        trading_confidence: 5, 
+        market_sentiment: "NEUTRAL",
+        notes: "", 
+        tags: []
+      });
     }
-    return null;
+  }, [entry]);
+
+  const handleSliderChange = (name: string, value: number[]) => {
+    console.log(`Slider ${name} changed to:`, value[0]); // Debug log
+    setFormData(prev => ({ ...prev, [name]: value[0] }));
   };
 
-  // Custom label function for pie chart
-  const renderCustomLabel = (entry: any) => {
-    const percent = entry.percent || 0;
-    return `${entry.name}: ${(percent * 100).toFixed(0)}%`;
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+  
+  const handleSelectChange = (value: string) => {
+    setFormData(prev => ({ ...prev, market_sentiment: value }));
   };
 
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-slate-900/50 border-slate-700/50">
-          <CardHeader>
-            <div className="h-6 bg-slate-800 rounded w-48 animate-pulse"></div>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 bg-slate-800 rounded animate-pulse"></div>
-          </CardContent>
-        </Card>
-        <Card className="bg-slate-900/50 border-slate-700/50">
-          <CardHeader>
-            <div className="h-6 bg-slate-800 rounded w-48 animate-pulse"></div>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 bg-slate-800 rounded animate-pulse"></div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const handleTagInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const newTag = tagInput.trim();
+      if (newTag && !formData.tags.includes(newTag)) {
+        setFormData(prev => ({ ...prev, tags: [...prev.tags, newTag] }));
+      }
+      setTagInput("");
+    }
+  };
 
-  const sectorData = getSentimentBySector();
-  const distributionData = getSentimentDistribution();
+  const removeTag = (tagToRemove: string) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(tag => tag !== tagToRemove)
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("Submitting form data:", formData); // Debug log
+    onSubmit(formData);
+  };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card className="bg-slate-900/50 border-slate-700/50 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-blue-400" />
-            Sentiment by Sector
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={sectorData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis 
-                  type="number" 
-                  stroke="#94a3b8" 
-                  fontSize={12} 
-                  domain={[-1, 1]}
-                  tick={{ fill: '#94a3b8' }}
+    <Card className="bg-slate-900/50 border-slate-700/50 backdrop-blur-sm mb-8">
+      <CardHeader>
+        <CardTitle className="text-white">
+          {entry ? "Edit" : "New"} Mood Entry
+        </CardTitle>
+      </CardHeader>
+      <form onSubmit={handleSubmit}>
+        <CardContent className="space-y-6">
+          {/* Slider Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {formFields.map(field => (
+              <div key={field.name} className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <label className="text-slate-300 font-medium">{field.label}</label>
+                  <span className="text-white font-bold text-lg bg-slate-800 px-3 py-1 rounded">
+                    {formData[field.name as keyof typeof formData] as number}
+                  </span>
+                </div>
+                <Slider
+                  value={[formData[field.name as keyof typeof formData] as number]}
+                  onValueChange={(value) => handleSliderChange(field.name, value)}
+                  min={1}
+                  max={10}
+                  step={1}
+                  className="w-full"
                 />
-                <YAxis 
-                  type="category" 
-                  dataKey="sector" 
-                  stroke="#94a3b8" 
-                  fontSize={12} 
-                  width={80}
-                  tick={{ fill: '#94a3b8' }}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="avgSentiment" radius={[0, 4, 4, 0]}>
-                  {sectorData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.avgSentiment > 0 ? '#22c55e' : '#ef4444'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>1</span>
+                  <span>5</span>
+                  <span>10</span>
+                </div>
+              </div>
+            ))}
           </div>
-        </CardContent>
-      </Card>
 
-      <Card className="bg-slate-900/50 border-slate-700/50 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-green-400" />
-            Sentiment Distribution
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={distributionData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  innerRadius={40}
-                  paddingAngle={5}
-                  label={renderCustomLabel}
-                  labelLine={false}
-                >
-                  {distributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1e293b', 
-                    border: '1px solid #334155',
-                    borderRadius: '8px'
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+          {/* Market Sentiment and Tags */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-slate-300 font-medium">Market Sentiment</label>
+              <Select value={formData.market_sentiment} onValueChange={handleSelectChange}>
+                <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BULLISH">Bullish</SelectItem>
+                  <SelectItem value="BEARISH">Bearish</SelectItem>
+                  <SelectItem value="NEUTRAL">Neutral</SelectItem>
+                  <SelectItem value="UNCERTAIN">Uncertain</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-slate-300 font-medium">Tags</label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {formData.tags.map(tag => (
+                  <Badge key={tag} className="bg-blue-500/20 text-blue-300 border-blue-500/30">
+                    {tag}
+                    <button 
+                      type="button" 
+                      onClick={() => removeTag(tag)} 
+                      className="ml-2 hover:text-blue-100"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+              <Input
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={handleTagInput}
+                placeholder="Add tags (e.g., focused, anxious) - Press Enter"
+                className="bg-slate-800 border-slate-600 text-white"
+              />
+            </div>
+          </div>
+          
+          {/* Notes */}
+          <div className="space-y-2">
+            <label className="text-slate-300 font-medium">Notes</label>
+            <Textarea
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+              placeholder="Any specific thoughts, feelings, or observations about your current state..."
+              className="bg-slate-800 border-slate-600 text-white min-h-[100px]"
+            />
           </div>
         </CardContent>
-      </Card>
-    </div>
+        
+        <CardFooter className="flex gap-3">
+          <Button 
+            type="button"
+            variant="outline" 
+            onClick={onCancel}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button 
+            type="submit"
+            className="flex-1 bg-blue-600 hover:bg-blue-700"
+          >
+            {entry ? "Update" : "Save"} Entry
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
   );
 }
