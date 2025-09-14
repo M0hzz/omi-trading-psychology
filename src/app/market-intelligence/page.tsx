@@ -1,5 +1,4 @@
 "use client"
-
 import React, { useState, useEffect } from "react";
 import { MarketIntelligenceService, type MarketIntelligence, type MarketSentimentSummary } from "@/entities/MarketIntelligence";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +13,9 @@ import {
   BarChart3,
   AlertCircle,
   ExternalLink,
-  Clock
+  Clock,
+  X,
+  Check
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -29,14 +30,28 @@ export default function MarketIntelligencePage() {
     sentiment: "all",
     source: "all"
   });
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(5); // 5 minutes
 
   useEffect(() => {
     loadMarketData();
-  }, []);
+    
+    // Set up auto-refresh if enabled
+    if (autoRefresh && refreshInterval > 0) {
+      const interval = setInterval(() => {
+        loadMarketData();
+      }, refreshInterval * 60 * 1000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [autoRefresh, refreshInterval]);
 
   const loadMarketData = async () => {
     setIsLoading(true);
     try {
+      // Update news first to ensure we have fresh data
+      await MarketIntelligenceService.updateNews();
+      
       const [newsItems, summary] = await Promise.all([
         MarketIntelligenceService.list("-created_date"),
         MarketIntelligenceService.getSentimentSummary()
@@ -54,6 +69,17 @@ export default function MarketIntelligencePage() {
     await loadMarketData();
     setIsRefreshing(false);
   };
+
+  const clearFilters = () => {
+    setFilters({
+      sector: "all",
+      impact: "all",
+      sentiment: "all",
+      source: "all"
+    });
+  };
+
+  const hasActiveFilters = Object.values(filters).some(value => value !== "all");
 
   const filteredNews = news.filter(item => {
     return (
@@ -117,15 +143,67 @@ export default function MarketIntelligencePage() {
               <p className="text-slate-400">Real-time market sentiment and psychology insights</p>
             </div>
           </div>
-          <Button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className="bg-slate-800 border-slate-700 hover:bg-slate-700"
+            >
+              {autoRefresh ? (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Auto Refresh On
+                </>
+              ) : (
+                <>
+                  <X className="w-4 h-4 mr-2" />
+                  Auto Refresh Off
+                </>
+              )}
+            </Button>
+          </div>
         </div>
+
+        {/* Auto Refresh Controls */}
+        {autoRefresh && (
+          <Card className="bg-slate-900/50 border-slate-700/50 backdrop-blur-sm mb-6">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-300">
+                  <Clock className="w-5 h-5" />
+                  <span>Auto-refreshing every {refreshInterval} minutes</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRefreshInterval(prev => Math.max(1, prev - 1))}
+                    className="bg-slate-800 border-slate-700 hover:bg-slate-700"
+                  >
+                    -
+                  </Button>
+                  <span className="text-white w-12 text-center">{refreshInterval}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRefreshInterval(prev => Math.min(60, prev + 1))}
+                    className="bg-slate-800 border-slate-700 hover:bg-slate-700"
+                  >
+                    +
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Market Sentiment Summary */}
         {sentimentSummary && (
@@ -150,7 +228,6 @@ export default function MarketIntelligencePage() {
                 </div>
               </CardContent>
             </Card>
-
             <Card className="bg-slate-900/50 border-slate-700/50 backdrop-blur-sm">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -162,7 +239,6 @@ export default function MarketIntelligencePage() {
                 </div>
               </CardContent>
             </Card>
-
             <Card className="bg-slate-900/50 border-slate-700/50 backdrop-blur-sm">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -174,7 +250,6 @@ export default function MarketIntelligencePage() {
                 </div>
               </CardContent>
             </Card>
-
             <Card className="bg-slate-900/50 border-slate-700/50 backdrop-blur-sm">
               <CardContent className="p-6">
                 <div>
@@ -195,55 +270,67 @@ export default function MarketIntelligencePage() {
         {/* Filters */}
         <Card className="bg-slate-900/50 border-slate-700/50 backdrop-blur-sm mb-8">
           <CardContent className="p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 items-center">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
               <div className="flex items-center gap-2 text-slate-300 font-semibold">
                 <Filter className="w-5 h-5" />
                 <span>Filters</span>
+                {hasActiveFilters && (
+                  <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 text-xs">
+                    Active
+                  </Badge>
+                )}
               </div>
               
-              <select 
-                value={filters.sector}
-                onChange={(e) => setFilters(prev => ({ ...prev, sector: e.target.value }))}
-                className="bg-slate-800 border border-slate-600 text-white rounded-md px-3 py-2 text-sm"
-              >
-                <option value="all">All Sectors</option>
-                {uniqueSectors.map(sector => (
-                  <option key={sector} value={sector}>{sector}</option>
-                ))}
-              </select>
-
-              <select 
-                value={filters.impact}
-                onChange={(e) => setFilters(prev => ({ ...prev, impact: e.target.value }))}
-                className="bg-slate-800 border border-slate-600 text-white rounded-md px-3 py-2 text-sm"
-              >
-                <option value="all">All Impact</option>
-                <option value="HIGH">High Impact</option>
-                <option value="MEDIUM">Medium Impact</option>
-                <option value="LOW">Low Impact</option>
-              </select>
-
-              <select 
-                value={filters.sentiment}
-                onChange={(e) => setFilters(prev => ({ ...prev, sentiment: e.target.value }))}
-                className="bg-slate-800 border border-slate-600 text-white rounded-md px-3 py-2 text-sm"
-              >
-                <option value="all">All Sentiment</option>
-                <option value="positive">Positive News</option>
-                <option value="neutral">Neutral News</option>
-                <option value="negative">Negative News</option>
-              </select>
-
-              <select 
-                value={filters.source}
-                onChange={(e) => setFilters(prev => ({ ...prev, source: e.target.value }))}
-                className="bg-slate-800 border border-slate-600 text-white rounded-md px-3 py-2 text-sm"
-              >
-                <option value="all">All Sources</option>
-                {uniqueSources.map(source => (
-                  <option key={source} value={source}>{source}</option>
-                ))}
-              </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 items-center flex-1">
+                <select 
+                  value={filters.sector}
+                  onChange={(e) => setFilters(prev => ({ ...prev, sector: e.target.value }))}
+                  className="bg-slate-800 border border-slate-600 text-white rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="all">All Sectors</option>
+                  {uniqueSectors.map(sector => (
+                    <option key={sector} value={sector}>{sector}</option>
+                  ))}
+                </select>
+                <select 
+                  value={filters.impact}
+                  onChange={(e) => setFilters(prev => ({ ...prev, impact: e.target.value }))}
+                  className="bg-slate-800 border border-slate-600 text-white rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="all">All Impact</option>
+                  <option value="HIGH">High Impact</option>
+                  <option value="MEDIUM">Medium Impact</option>
+                  <option value="LOW">Low Impact</option>
+                </select>
+                <select 
+                  value={filters.sentiment}
+                  onChange={(e) => setFilters(prev => ({ ...prev, sentiment: e.target.value }))}
+                  className="bg-slate-800 border border-slate-600 text-white rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="all">All Sentiment</option>
+                  <option value="positive">Positive News</option>
+                  <option value="neutral">Neutral News</option>
+                  <option value="negative">Negative News</option>
+                </select>
+                <select 
+                  value={filters.source}
+                  onChange={(e) => setFilters(prev => ({ ...prev, source: e.target.value }))}
+                  className="bg-slate-800 border border-slate-600 text-white rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="all">All Sources</option>
+                  {uniqueSources.map(source => (
+                    <option key={source} value={source}>{source}</option>
+                  ))}
+                </select>
+                <Button
+                  onClick={clearFilters}
+                  variant="outline"
+                  size="sm"
+                  className="bg-slate-800 border-slate-700 hover:bg-slate-700"
+                >
+                  Clear Filters
+                </Button>
+              </div>
             </div>
             <div className="mt-3 text-sm text-slate-400">
               Showing {filteredNews.length} of {news.length} articles
@@ -257,7 +344,7 @@ export default function MarketIntelligencePage() {
             <Newspaper className="w-6 h-6 text-blue-400" />
             <h2>Market News Feed</h2>
           </div>
-
+          
           {isLoading ? (
             <div className="grid gap-6">
               {[...Array(5)].map((_, i) => (
@@ -302,17 +389,17 @@ export default function MarketIntelligencePage() {
                             {article.created_date && formatTimeAgo(article.created_date)}
                           </div>
                         </div>
-
+                        
                         <h3 className="text-lg font-semibold text-white mb-3 leading-tight">
                           {article.headline}
                         </h3>
-
+                        
                         {article.summary && (
                           <p className="text-slate-300 text-sm mb-4 leading-relaxed">
                             {article.summary}
                           </p>
                         )}
-
+                        
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
                             <div className="text-sm text-slate-400">
@@ -336,7 +423,6 @@ export default function MarketIntelligencePage() {
                               </div>
                             )}
                           </div>
-
                           {article.url && (
                             <Button
                               variant="outline"
@@ -349,7 +435,7 @@ export default function MarketIntelligencePage() {
                             </Button>
                           )}
                         </div>
-
+                        
                         {/* Sentiment Indicator */}
                         <div className="mt-4 pt-4 border-t border-slate-700/50">
                           <div className="flex items-center justify-between">
@@ -381,7 +467,7 @@ export default function MarketIntelligencePage() {
               </div>
             </AnimatePresence>
           )}
-
+          
           {/* No Results */}
           {!isLoading && filteredNews.length === 0 && (
             <Card className="bg-slate-900/50 border-slate-700/50">

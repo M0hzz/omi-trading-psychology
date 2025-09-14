@@ -1,56 +1,91 @@
-// src/entities/MoodEntry.ts - Updated to use Supabase
-import { supabase, getCurrentUser } from '@/lib/supabase'
-import { Database } from '@/types/supabase'
+// src/entities/MoodEntry.ts
+import { supabase } from '@/lib/supabase';
 
 export interface MoodEntry {
   id?: string;
-  mood_score: number; // 1-10
-  energy_level: number; // 1-10
-  stress_level: number; // 1-10
+  mood_score: number;
+  energy_level: number;
+  stress_level: number;
+  confidence: number; // Changed from trading_confidence
   market_sentiment: "BULLISH" | "BEARISH" | "NEUTRAL" | "UNCERTAIN";
-  trading_confidence: number; // 1-10
   notes?: string;
   tags?: string[];
-  created_date?: string; // Keep this for backward compatibility
-  updated_date?: string; // Keep this for backward compatibility
-  user_id?: string;
+  created_date?: string;
+  updated_date?: string;
 }
 
-type DbMoodEntry = Database['public']['Tables']['mood_entries']['Row']
-type InsertMoodEntry = Database['public']['Tables']['mood_entries']['Insert']
-type UpdateMoodEntry = Database['public']['Tables']['mood_entries']['Update']
+// Database types (these might have different column names)
+interface DbMoodEntry {
+  id: string;
+  user_id: string;
+  mood_score: number;
+  energy_level: number;
+  stress_level: number;
+  trading_confidence: number; // Database still uses this name
+  market_sentiment: string;
+  notes: string | null;
+  tags: string[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface CreateMoodEntry {
+  user_id: string;
+  mood_score: number;
+  energy_level: number;
+  stress_level: number;
+  trading_confidence: number;
+  market_sentiment: string;
+  notes?: string | null;
+  tags?: string[] | null;
+}
+
+interface UpdateMoodEntry {
+  mood_score?: number;
+  energy_level?: number;
+  stress_level?: number;
+  trading_confidence?: number;
+  market_sentiment?: string;
+  notes?: string | null;
+  tags?: string[] | null;
+}
+
+// Auth helper function
+const getCurrentUser = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+};
 
 export class MoodEntryService {
   private static storageKey = 'omi_mood_entries';
 
-  // Convert database format to app format
+  // Transform database entry to app entry
   private static dbToApp(dbEntry: DbMoodEntry): MoodEntry {
     return {
       id: dbEntry.id,
       mood_score: dbEntry.mood_score,
       energy_level: dbEntry.energy_level,
       stress_level: dbEntry.stress_level,
-      market_sentiment: dbEntry.market_sentiment,
-      trading_confidence: dbEntry.trading_confidence,
-      notes: dbEntry.notes || undefined,
-      tags: dbEntry.tags || undefined,
+      confidence: dbEntry.trading_confidence, // Map database field to app field
+      market_sentiment: dbEntry.market_sentiment as any,
+      notes: dbEntry.notes || "",
+      tags: dbEntry.tags || [],
       created_date: dbEntry.created_at,
       updated_date: dbEntry.updated_at,
-      user_id: dbEntry.user_id
     };
   }
 
-  // Convert app format to database format
-  private static appToDb(appEntry: Omit<MoodEntry, 'id' | 'created_date' | 'updated_date'>, userId: string): InsertMoodEntry {
+  // Transform app entry to database entry
+  private static appToDb(appEntry: Omit<MoodEntry, 'id' | 'created_date' | 'updated_date'>, userId: string): CreateMoodEntry {
     return {
       user_id: userId,
       mood_score: appEntry.mood_score,
       energy_level: appEntry.energy_level,
       stress_level: appEntry.stress_level,
+      trading_confidence: appEntry.confidence, // Map app field to database field
       market_sentiment: appEntry.market_sentiment,
-      trading_confidence: appEntry.trading_confidence,
       notes: appEntry.notes || null,
-      tags: appEntry.tags || null
+      tags: appEntry.tags || null,
     };
   }
 
@@ -140,7 +175,7 @@ export class MoodEntryService {
       if (data.energy_level !== undefined) updateData.energy_level = data.energy_level;
       if (data.stress_level !== undefined) updateData.stress_level = data.stress_level;
       if (data.market_sentiment !== undefined) updateData.market_sentiment = data.market_sentiment;
-      if (data.trading_confidence !== undefined) updateData.trading_confidence = data.trading_confidence;
+      if (data.confidence !== undefined) updateData.trading_confidence = data.confidence; // Map app field to db field
       if (data.notes !== undefined) updateData.notes = data.notes || null;
       if (data.tags !== undefined) updateData.tags = data.tags || null;
 
@@ -303,7 +338,7 @@ export class MoodEntryService {
         mood_score: Math.floor(Math.random() * 10) + 1,
         energy_level: Math.floor(Math.random() * 10) + 1,
         stress_level: Math.floor(Math.random() * 10) + 1,
-        trading_confidence: Math.floor(Math.random() * 10) + 1,
+        confidence: Math.floor(Math.random() * 10) + 1, // Changed from trading_confidence
         market_sentiment: ["BULLISH", "BEARISH", "NEUTRAL", "UNCERTAIN"][Math.floor(Math.random() * 4)] as any,
         notes: `Sample entry for ${date.toDateString()}`,
         tags: Math.random() > 0.5 ? [["focused", "anxious", "confident", "stressed"][Math.floor(Math.random() * 4)]] : [],

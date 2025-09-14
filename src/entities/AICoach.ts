@@ -15,7 +15,7 @@ export interface ChatSession {
 
 export class AICoachService {
   private static storageKey = 'omi_chat_sessions';
-
+  
   static async getOrCreateSession(): Promise<ChatSession> {
     const stored = typeof window !== 'undefined' ? localStorage.getItem(this.storageKey) : null;
     let session: ChatSession;
@@ -51,22 +51,17 @@ export class AICoachService {
 
   static async generateAIResponse(userMessage: string): Promise<string> {
     try {
-      // Get conversation history for context
       const session = await this.getOrCreateSession();
       const conversationHistory = session.messages
-        .filter(msg => msg.id !== 'welcome') // Exclude welcome message
+        .filter(msg => msg.id !== 'welcome')
         .map(msg => ({
           role: msg.type === 'user' ? 'user' as const : 'assistant' as const,
           content: msg.content
         }));
-
-      // Call DeepSeek API
-      const response = await DeepSeekService.generateResponse(userMessage, conversationHistory);
-      return response;
+      
+      return await DeepSeekService.generateResponse(userMessage, conversationHistory);
     } catch (error) {
       console.error('AI Response Error:', error);
-      
-      // Fallback to rule-based responses if API fails
       return this.getFallbackResponse(userMessage.toLowerCase());
     }
   }
@@ -89,20 +84,19 @@ export class AICoachService {
     }
   }
 
-  // Test if DeepSeek API is working
   static async testAPIConnection(): Promise<{ success: boolean; message: string }> {
     try {
       const isConnected = await DeepSeekService.testConnection();
       return {
         success: isConnected,
         message: isConnected 
-          ? 'DeepSeek API connection successful!' 
-          : 'DeepSeek API connection failed. Check your API key.'
+          ? 'Connection working!' 
+          : 'Hmm, connection failed. Check your API key?'
       };
     } catch (error) {
       return {
         success: false,
-        message: `Connection test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        message: `Connection test failed: ${error instanceof Error ? error.message : 'Something went wrong'}`
       };
     }
   }
@@ -117,65 +111,64 @@ export class AICoachService {
     return {
       id: 'welcome',
       type: 'ai',
-      content: "Hi! I'm your personal mood and psychology coach, powered by DeepSeek AI. I'm here to help you understand your emotional patterns, manage stress, and optimize your mental well-being.\n\nI can help you with mood tracking insights, stress management techniques, building confidence, and developing healthy psychological habits. What's on your mind today?",
+      content: "Hey there! 👋 I'm your personal mood coach, powered by DeepSeek AI. I'm here to help you understand your emotions, manage stress, and feel better about life.\n\nNeed mood insights? Stress tips? Just want to chat? I've got your back! What's on your mind today?",
       timestamp: new Date().toISOString()
     };
   }
 
-  // Fallback responses if API fails
   private static getFallbackResponse(userMessage: string): string {
     if (userMessage.includes('stress') || userMessage.includes('anxiety')) {
-      return "I understand you're feeling stressed. Here are some quick techniques that can help:\n\n• Try the 4-7-8 breathing technique (inhale 4, hold 7, exhale 8)\n• Take a brief walk if possible\n• Practice progressive muscle relaxation\n• Use grounding techniques (name 5 things you see, 4 you hear, etc.)\n\nWhat specific situation is causing you stress right now?";
+      return "Stress sucks, right? 😩 Here are some quick fixes:\n\n• Try 4-7-8 breathing (inhale 4, hold 7, exhale 8)\n• Take a quick walk outside\n• Squeeze and release your muscles\n• Name 5 things you see, 4 you hear, etc.\n\nWhat's stressing you out right now?";
     }
     
     if (userMessage.includes('sad') || userMessage.includes('down') || userMessage.includes('depressed')) {
-      return "I hear that you're feeling down. It's okay to have these feelings - they're a normal part of life. Some gentle approaches that might help:\n\n• Allow yourself to feel the emotion without judgment\n• Do one small thing that usually brings you comfort\n• Reach out to someone you trust\n• Practice self-compassion - talk to yourself like you would a good friend\n\nWhat do you think might help you feel a little better today?";
+      return "Feeling down is totally okay - we all have those days. 💙 Here's what might help:\n\n• Give yourself permission to feel this way\n• Do one small thing that usually makes you smile\n• Text a friend if you feel up for it\n• Be kind to yourself like you'd be to a good friend\n\nWhat usually helps when you're feeling blue?";
     }
     
     if (userMessage.includes('confidence') || userMessage.includes('doubt')) {
-      return "Confidence can be tricky - it comes and goes naturally. Here are some ways to build stable self-trust:\n\n• Write down 3 recent accomplishments you're proud of\n• Notice your strengths - what do others appreciate about you?\n• Celebrate small wins throughout your day\n• Practice kind self-talk when you make mistakes\n\nWhat's one area where you'd like to feel more confident?";
+      return "Confidence can be tricky! Here are some quick confidence boosters:\n\n• Write down 3 things you rocked this week\n• Ask a friend what they like about you\n• Celebrate tiny wins\n• Practice talking to yourself like your own best friend\n\nWhere would you like to feel more confident?";
     }
     
-    return "Thank you for sharing that with me. I'm here to support you with whatever you're going through. Sometimes just talking about our thoughts and feelings can be really helpful.\n\nWhat's the most important thing on your mind right now? I'm here to listen and help however I can.";
+    return "Thanks for sharing that with me! 🌟 Just talking about stuff can help a lot. What's the biggest thing on your mind right now? I'm here to listen however I can.";
   }
 
   private static getFallbackMoodInsight(moodData: any[]): string {
     if (!moodData.length) {
-      return "Start tracking your mood regularly to discover patterns and insights that can help improve your emotional well-being. Even a few data points can reveal helpful trends!";
+      return "Start tracking your mood to see patterns! Even a few entries can show you what's working for you ✨";
     }
-
+    
     const recent = moodData.slice(0, 7);
     const avgMood = recent.reduce((sum, entry) => sum + entry.mood_score, 0) / recent.length;
     const avgStress = recent.reduce((sum, entry) => sum + entry.stress_level, 0) / recent.length;
     
-    let insight = `Based on your recent ${recent.length} mood entries:\n\n`;
+    let insight = `Looking at your last ${recent.length} mood entries:\n\n`;
     
     if (avgMood >= 7) {
-      insight += "• Your mood has been quite positive lately! This is wonderful - keep up whatever you're doing that's working for you.\n";
+      insight += "You've been feeling pretty awesome lately! Keep doing whatever you're doing! 🎉\n";
     } else if (avgMood >= 5) {
-      insight += "• Your mood appears to be in a moderate range, which is completely normal.\n";
+      insight += "Your mood's been in a pretty chill place lately - totally normal! 😌\n";
     } else {
-      insight += "• I notice your recent mood scores are on the lower side. Remember that this is temporary, and there are strategies we can work on together.\n";
+      insight += "Your mood's been a bit low lately, but that's okay! This stuff passes 💪\n";
     }
     
     if (avgStress >= 7) {
-      insight += "• Your stress levels seem elevated. Consider incorporating more stress-reduction activities into your routine.\n";
+      insight += "Stress levels are high - maybe try some of those stress-busting techniques?\n";
     } else if (avgStress <= 3) {
-      insight += "• Your stress levels look well-managed - great job taking care of yourself!\n";
+      insight += "You've been handling stress like a boss! Good job! 🙌\n";
     }
     
-    insight += "\nConsistent mood tracking helps identify patterns over time. Keep logging your emotions to gain deeper insights!";
+    insight += "\nKeep logging your feelings to see what patterns show up over time!";
     
     return insight;
   }
 
   private static getFallbackStressHelp(stressLevel: number): string {
     if (stressLevel >= 8) {
-      return "That's a high stress level. Here are some immediate techniques to help:\n\n• Focus on deep, slow breathing\n• Try the 5-4-3-2-1 grounding technique\n• Step away from stressful situations if possible\n• Consider talking to someone you trust\n• Remember: this feeling will pass\n\nIf you're consistently experiencing high stress, consider speaking with a counselor or therapist.";
+      return "Whoa, that's a lot of stress! 😱 Quick help:\n\n• Breathe slowly and deeply\n• Try naming 5 things you can see\n• Step away from the situation if you can\n• Text someone you trust\n• Remember: this feeling will pass\n\nIf this keeps happening, maybe chat with a counselor?";
     } else if (stressLevel >= 5) {
-      return "Moderate stress is manageable with the right techniques:\n\n• Take short breaks throughout your day\n• Practice mindfulness or meditation\n• Get some physical activity\n• Organize your tasks to feel more in control\n• Make sure you're getting enough sleep\n\nWhat usually helps you feel more relaxed?";
+      return "Stress's kinda kicking in, huh? Here's what might help:\n\n• Take little breaks throughout your day\n• Try a quick 5-minute meditation\n• Move your body a bit\n• Make a to-do list to feel more in control\n• Get some good sleep tonight\n\nWhat usually helps you chill out?";
     } else {
-      return "Your stress level seems manageable right now, which is great! Here are some ways to maintain this:\n\n• Keep up your current coping strategies\n• Stay aware of early stress warning signs\n• Maintain healthy habits like good sleep and exercise\n• Practice gratitude for the calm moments\n\nWhat's been helping you stay relatively calm lately?";
+      return "You're doing pretty good with stress! 🌟 Keep it up with:\n\n• Your current chill methods\n• Watching for early stress signs\n• Keeping up those healthy habits\n• Being grateful for the calm moments\n\nWhat's been helping you stay relaxed lately?";
     }
   }
 }
