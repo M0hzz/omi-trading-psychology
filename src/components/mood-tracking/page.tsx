@@ -1,11 +1,10 @@
-"use client"
-
+// src/pages/mood-tracking.tsx (or wherever your MoodTrackingPage is)
 import React, { useState, useEffect } from "react";
 import { MoodEntryService, type MoodEntry } from "@/entities/MoodEntry";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, PlusCircle, Edit, Trash2, CheckCircle } from "lucide-react";
+import { Activity, PlusCircle, Edit, Trash2, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import MoodForm from "@/components/mood-tracking/MoodForm";
 
@@ -15,15 +14,17 @@ export default function MoodTrackingPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState<MoodEntry | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [entriesPerPage] = useState(5); // Number of entries per page
 
   useEffect(() => {
     loadMoodEntries();
-  }, []);
+  }, [currentPage]);
 
   const loadMoodEntries = async () => {
     setIsLoading(true);
     try {
-      const entries = await MoodEntryService.list("-created_date");
+      const entries = await MoodEntryService.list("-created_date", entriesPerPage, (currentPage - 1) * entriesPerPage);
       setMoodEntries(entries);
     } catch (error) {
       console.error("Error loading mood entries:", error);
@@ -44,7 +45,6 @@ export default function MoodTrackingPage() {
       setShowForm(false);
       setShowSuccess(true);
       
-      // Hide success message after 3 seconds
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (error) {
       console.error("Error saving mood entry:", error);
@@ -100,7 +100,6 @@ export default function MoodTrackingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Success Message */}
         <AnimatePresence>
           {showSuccess && (
             <motion.div
@@ -119,7 +118,6 @@ export default function MoodTrackingPage() {
           )}
         </AnimatePresence>
 
-        {/* Header */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
@@ -142,7 +140,6 @@ export default function MoodTrackingPage() {
           </Button>
         </div>
 
-        {/* Mood Form */}
         <AnimatePresence>
           {showForm && (
             <motion.div
@@ -159,7 +156,6 @@ export default function MoodTrackingPage() {
           )}
         </AnimatePresence>
 
-        {/* Mood Entries List */}
         <div className="space-y-6">
           <h2 className="text-xl font-semibold text-white">Recent Entries</h2>
           
@@ -193,98 +189,119 @@ export default function MoodTrackingPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-6">
-              {moodEntries.map((entry) => (
-                <motion.div
-                  key={entry.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Card className="bg-slate-900/50 border-slate-700/50 hover:border-slate-600/50 transition-colors">
-                    <CardContent className="p-6">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="text-slate-400">
-                            {entry.created_date && formatDate(entry.created_date)}
-                          </div>
-                          <Badge className={getSentimentColor(entry.market_sentiment)}>
-                            {entry.market_sentiment}
-                          </Badge>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(entry)}
-                            className="text-blue-400 hover:text-blue-300"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(entry.id!)}
-                            className="text-red-400 hover:text-red-300"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Scores Grid */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                        <div className="text-center">
-                          <div className="text-sm text-slate-400">Mood</div>
-                          <div className={`text-2xl font-bold ${getScoreColor(entry.mood_score)}`}>
-                            {entry.mood_score}
-                          </div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm text-slate-400">Energy</div>
-                          <div className={`text-2xl font-bold ${getScoreColor(entry.energy_level)}`}>
-                            {entry.energy_level}
-                          </div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm text-slate-400">Stress</div>
-                          <div className={`text-2xl font-bold ${getScoreColor(10 - entry.stress_level)}`}>
-                            {entry.stress_level}
-                          </div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-sm text-slate-400">Confidence</div>
-                          <div className={`text-2xl font-bold ${getScoreColor(entry.trading_confidence)}`}>
-                            {entry.trading_confidence}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Tags */}
-                      {entry.tags && entry.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {entry.tags.map((tag) => (
-                            <Badge
-                              key={tag}
-                              className="bg-slate-800 text-slate-300 border-slate-600"
-                            >
-                              {tag}
+            <>
+              <div className="grid gap-6">
+                {moodEntries.map((entry) => (
+                  <motion.div
+                    key={entry.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <Card className="bg-slate-900/50 border-slate-700/50 hover:border-slate-600/50 transition-colors">
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="text-slate-400">
+                              {entry.created_date && formatDate(entry.created_date)}
+                            </div>
+                            <Badge className={getSentimentColor(entry.market_sentiment)}>
+                              {entry.market_sentiment}
                             </Badge>
-                          ))}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(entry)}
+                              className="text-blue-400 hover:text-blue-300"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(entry.id!)}
+                              className="text-red-400 hover:text-red-300"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
-                      )}
-
-                      {/* Notes */}
-                      {entry.notes && (
-                        <div className="text-slate-300 text-sm bg-slate-800/50 p-3 rounded">
-                          {entry.notes}
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                          <div className="text-center">
+                            <div className="text-sm text-slate-400">Mood</div>
+                            <div className={`text-2xl font-bold ${getScoreColor(entry.mood_score)}`}>
+                              {entry.mood_score}
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm text-slate-400">Energy</div>
+                            <div className={`text-2xl font-bold ${getScoreColor(entry.energy_level)}`}>
+                              {entry.energy_level}
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm text-slate-400">Stress</div>
+                            <div className={`text-2xl font-bold ${getScoreColor(10 - entry.stress_level)}`}>
+                              {entry.stress_level}
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm text-slate-400">Confidence</div>
+                            <div className={`text-2xl font-bold ${getScoreColor(entry.confidence)}`}>
+                              {entry.confidence}
+                            </div>
+                          </div>
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
+                        
+                        {entry.tags && entry.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {entry.tags.map((tag) => (
+                              <Badge
+                                key={tag}
+                                className="bg-slate-800 text-slate-300 border-slate-600"
+                              >
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {entry.notes && (
+                          <div className="text-slate-300 text-sm bg-slate-800/50 p-3 rounded">
+                            {entry.notes}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+              
+              {/* Pagination */}
+              <div className="flex justify-center items-center gap-2 mt-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="text-slate-300">
+                  Page {currentPage}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => prev + 1)}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </>
           )}
         </div>
       </div>

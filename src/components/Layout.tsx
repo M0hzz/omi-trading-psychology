@@ -1,9 +1,12 @@
 "use client"
-
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createPageUrl } from "@/utils";
+import FloatingChat from '@/components/FloatingChat';
+import ProactiveOMISystem from '@/components/ProactiveOMISystem';
+import { ProactiveOMIService } from '@/lib/proactive-omi-service';
+import { useEffect, useState } from 'react';
 import { 
   BarChart3, 
   Brain, 
@@ -57,7 +60,18 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const pathname = usePathname();
-
+  
+  // Add these lines:
+  const [proactiveService] = useState(() => ProactiveOMIService.getInstance());
+  // Initialize proactive monitoring
+  useEffect(() => {
+    proactiveService.startMonitoring();
+    
+    return () => {
+      proactiveService.stopMonitoring();
+    };
+  }, [proactiveService]);
+  
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-slate-950">
@@ -99,12 +113,15 @@ export default function Layout({ children }: LayoutProps) {
             </SidebarMenu>
           </SidebarContent>
         </Sidebar>
-
-        <main className="flex-1 flex flex-col">
-          <div className="flex-1 overflow-auto bg-slate-950">
-            {children}
-          </div>
+        
+        {/* Main content */}
+        <main className="flex-1">
+          {children}
         </main>
+        
+        {/* Add these components at the end, before closing div */}
+        <ProactiveOMISystem />
+        <FloatingChat mode="trading" />
       </div>
     </SidebarProvider>
   );
