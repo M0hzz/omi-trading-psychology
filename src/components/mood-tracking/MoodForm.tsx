@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
-import { ProactiveOMIService } from '@/lib/proactive-omi-service';
 import { MoodEntryService } from '@/entities/MoodEntry';
 
 interface MoodEntry {
@@ -131,7 +130,6 @@ export default function MoodForm({ entry, onSubmit, onCancel }: MoodFormProps) {
     tags: []
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [notificationSent, setNotificationSent] = useState(false);
 
   useEffect(() => {
     if (entry) {
@@ -209,54 +207,7 @@ export default function MoodForm({ entry, onSubmit, onCancel }: MoodFormProps) {
     
     setIsSubmitting(true);
     try {
-      await MoodEntryService.create(formData);
-      
-      const proactiveService = ProactiveOMIService.getInstance();
-      
-      if (formData.stress_level >= 8) {
-        setTimeout(() => {
-          proactiveService.addNotification({
-            type: 'alert',
-            title: 'I see you\'re stressed 😟',
-            message: 'High stress can be overwhelming. Want to try a quick breathing exercise or talk about what\'s causing it?',
-            urgency: 'high',
-            responses: ['Help me calm down', 'Let\'s talk about it', 'I\'m handling it'],
-            autoClose: 60000
-          });
-        }, 5000);
-      }
-      
-      if (formData.mood_score >= 8) {
-        proactiveService.addNotification({
-          type: 'celebration',
-          title: 'You\'re feeling great! ✨',
-          message: 'I love seeing you in such a positive state! What\'s contributing to this good mood?',
-          urgency: 'low',
-          responses: ['Life is good!', 'Good trading day', 'Working on myself'],
-          autoClose: 20000
-        });
-      }
-      
-      if (formData.energy_level <= 3) {
-        proactiveService.addNotification({
-          type: 'check-in',
-          title: 'Low energy day? 😴',
-          message: 'Sometimes our bodies need rest. Are you getting enough sleep? Maybe a short walk or some fresh air could help?',
-          urgency: 'medium',
-          responses: ['Need rest', 'Could use tips', 'I\'ll be fine'],
-          autoClose: 30000
-        });
-      }
-      
-      proactiveService.addNotification({
-        type: 'encouragement',
-        title: 'Thanks for checking in! 💙',
-        message: 'I appreciate you taking the time to track your mood. This self-awareness is a superpower!',
-        urgency: 'low',
-        autoClose: 10000
-      });
-      
-      setNotificationSent(true);
+      // Only call onSubmit with form data - no service call here
       onSubmit(formData);
     } catch (error) {
       console.error('Error submitting mood entry:', error);

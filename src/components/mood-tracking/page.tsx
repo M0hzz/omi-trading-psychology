@@ -1,4 +1,4 @@
-// src/pages/mood-tracking.tsx (or wherever your MoodTrackingPage is)
+// src/pages/MoodTrackingPage.tsx
 import React, { useState, useEffect } from "react";
 import { MoodEntryService, type MoodEntry } from "@/entities/MoodEntry";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Activity, PlusCircle, Edit, Trash2, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import MoodForm from "@/components/mood-tracking/MoodForm";
+import { ProactiveOMIService } from '@/lib/proactive-omi-service';
 
 export default function MoodTrackingPage() {
   const [moodEntries, setMoodEntries] = useState<MoodEntry[]>([]);
@@ -37,7 +38,54 @@ export default function MoodTrackingPage() {
       if (editingEntry) {
         await MoodEntryService.update(editingEntry.id!, data);
       } else {
+        // Only create once here
         await MoodEntryService.create(data);
+        
+        // Notification logic moved here
+        const proactiveService = ProactiveOMIService.getInstance();
+        
+        if (data.stress_level >= 8) {
+          setTimeout(() => {
+            proactiveService.addNotification({
+              type: 'alert',
+              title: 'I see you\'re stressed 😟',
+              message: 'High stress can be overwhelming. Want to try a quick breathing exercise or talk about what\'s causing it?',
+              urgency: 'high',
+              responses: ['Help me calm down', 'Let\'s talk about it', 'I\'m handling it'],
+              autoClose: 60000
+            });
+          }, 5000);
+        }
+        
+        if (data.mood_score >= 8) {
+          proactiveService.addNotification({
+            type: 'celebration',
+            title: 'You\'re feeling great! ✨',
+            message: 'I love seeing you in such a positive state! What\'s contributing to this good mood?',
+            urgency: 'low',
+            responses: ['Life is good!', 'Good trading day', 'Working on myself'],
+            autoClose: 20000
+          });
+        }
+        
+        if (data.energy_level <= 3) {
+          proactiveService.addNotification({
+            type: 'check-in',
+            title: 'Low energy day? 😴',
+            message: 'Sometimes our bodies need rest. Are you getting enough sleep? Maybe a short walk or some fresh air could help?',
+            urgency: 'medium',
+            responses: ['Need rest', 'Could use tips', 'I\'ll be fine'],
+            autoClose: 30000
+          });
+        }
+        
+        proactiveService.addNotification({
+          type: 'encouragement',
+          title: 'Thanks for checking in! 💙',
+          message: 'I appreciate you taking the time to track your mood. This self-awareness is a superpower!',
+          urgency: 'low',
+          autoClose: 10000
+        });
       }
       
       await loadMoodEntries();
